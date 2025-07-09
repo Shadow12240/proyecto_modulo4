@@ -130,6 +130,57 @@ async function getTask(req, res, next) {
         next(error);
     }
 }
+async function getUsersPagination(req, res, next) {
+    try {
+        // 1. query params con defaults
+        let page = parseInt(req.query.page) || 1;
+        let limit = parseInt(req.query.limit) || 10;
+        const search = req.query.search || '';
+        let orderBy = req.query.orderBy || 'id';
+        let orderDir = (req.query.orderDir || 'DESC').toUpperCase();
+
+        // Validar limit
+        const allowedLimits = [5, 10, 15, 20];
+        if (!allowedLimits.includes(limit)) limit = 10;
+
+        // Validar orderBy
+        const allowedOrderBy = ['id', 'username', 'status'];
+        if (!allowedOrderBy.includes(orderBy)) orderBy = 'id';
+
+        // Validar orderDir
+        if (!['ASC', 'DESC'].includes(orderDir)) orderDir = 'DESC';
+
+        // 2. offset
+        const offset = (page - 1) * limit;
+
+        // 3. where dinámico para búsqueda
+        let where = {};
+        if (search) {
+            where.username = { [Op.iLike]: `%${search}%` };
+        }
+
+        // 4. query con paginación
+        const { count, rows } = await User.findAndCountAll({
+            attributes: ['id', 'username', 'status'],
+            where,
+            limit,
+            offset,
+            order: [[orderBy, orderDir]],
+        });
+
+        // 5. respuesta
+        res.json({
+            total: count,
+            page,
+            limit,
+            pages: Math.ceil(count / limit),
+            data: rows
+        });
+
+    } catch (error) {
+        next(error);
+    }
+}
 
     export default{
     getUsers,
@@ -138,5 +189,6 @@ async function getTask(req, res, next) {
     updateUser,
     deleteUser,
     activateInactivateUser,
-    getTask
+    getTask,
+    getUsersPagination
 };
